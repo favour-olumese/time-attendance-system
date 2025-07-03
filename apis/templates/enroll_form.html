@@ -1,0 +1,74 @@
+<h2>Enroll {{ role }} Fingerprint</h2>
+
+<form id="enroll-form" method="post">
+  {% csrf_token %}
+  {% if role == "Student" %}
+    <label>Matric Number:</label>
+  {% else %}
+    <label>Email:</label>
+  {% endif %}
+  {{ form.user }}
+
+  <input type="hidden" id="slot-id" name="slot_id">
+  <button type="submit">Enroll</button>
+</form>
+
+
+<div id="status"></div>
+
+<script>
+  const form = document.getElementById('enroll-form');
+  const statusDiv = document.getElementById('status');
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    statusDiv.innerText = "Requesting fingerprint enrollment slot...";
+
+    try {
+      // Step 1: Ask Django for next free slot
+      const slotResponse = await fetch("{% url 'get-next-slot' %}");
+      const slotData = await slotResponse.json();
+
+      if (!slotData.slot) {
+        statusDiv.innerText = "No available fingerprint slots.";
+        return;
+      }
+
+      const slot = slotData.slot;
+      document.getElementById('slot-id').value = slot;
+
+      // Step 2: Send request to ESP32 to enroll
+      const esp32Response = await fetch(`http://192.168.43.5/enroll?slot=${slot}`);
+      const esp32Result = await esp32Response.json();
+
+      if (esp32Result.status === "success") {
+        statusDiv.innerText = "Fingerprint enrolled! Saving to server...";
+
+        // Step 3: Submit form data manually to Django
+        const formData = new FormData(form);
+
+        const djangoResponse = await fetch(window.location.href, {
+          method: "POST",
+          body: formData,
+          headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+          }
+        });
+
+        const result = await djangoResponse.json();
+        if (result.status === "success") {
+          statusDiv.innerText = "Enrollment successful and saved!";
+        } else {
+          statusDiv.innerText = "Saved failed: " + (result.message || "Unknown error");
+        }
+
+      } else {
+        statusDiv.innerText = "ESP32 enrollment failed: " + esp32Result.message;
+      }
+
+    } catch (err) {
+      console.error(err);
+      statusDiv.innerText = "Error talking to ESP32 or Django server.";
+    }
+  });
+</script>
