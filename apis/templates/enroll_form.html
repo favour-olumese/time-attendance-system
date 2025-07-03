@@ -4,10 +4,12 @@
   {% csrf_token %}
   {% if role == "Student" %}
     <label>Matric Number:</label>
+     {{ form.matric_number }}
   {% else %}
     <label>Email:</label>
+     {{ form.email }}
   {% endif %}
-  {{ form.user }}
+ 
 
   <input type="hidden" id="slot-id" name="slot_id">
   <button type="submit">Enroll</button>
@@ -22,48 +24,55 @@
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
-    statusDiv.innerText = "Requesting fingerprint enrollment slot...";
+    statusDiv.innerText = "Checking availability...";
+
+    const formData = new FormData(form);
+    const matricNumber = formData.get("matric_number");
 
     try {
-      // Step 1: Ask Django for next free slot
-      const slotResponse = await fetch("{% url 'get-next-slot' %}");
-      const slotData = await slotResponse.json();
-
-      if (!slotData.slot) {
-        statusDiv.innerText = "No available fingerprint slots.";
+      // Step 1: Check if already mapped
+      const checkResponse = await fetch(`/api/check_matric/${matricNumber}/`);
+      const checkData = await checkResponse.json();
+      console.log(checkData)
+      if (checkData.fingerprint_exists) {
+        statusDiv.innerText = "User already enrolled!";
+        return;
+      } else if (!checkData.user_exists) {
+        statusDiv.innerText = "User does not exist!";
         return;
       }
 
+      // Step 2: Get slot
+      const slotResponse = await fetch("{% url 'get-next-slot' %}");
+      const slotData = await slotResponse.json();
       const slot = slotData.slot;
       document.getElementById('slot-id').value = slot;
 
-      // Step 2: Send request to ESP32 to enroll
+      // Step 3: Send to ESP32
       const esp32Response = await fetch(`http://192.168.43.5/enroll?slot=${slot}`);
       const esp32Result = await esp32Response.json();
 
       if (esp32Result.status === "success") {
-        statusDiv.innerText = "Fingerprint enrolled! Saving to server...";
-
-        // Step 3: Submit form data manually to Django
-        const formData = new FormData(form);
-
-        const djangoResponse = await fetch(window.location.href, {
-          method: "POST",
+        statusDiv.innerText = "Fingerprint enrolled. Saving...";
+        
+        // Submit the form to save to DB
+        const saveResponse = await fetch("{% url 'enroll-student' %}", {
+          method: 'POST',
           body: formData,
           headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
           }
         });
 
-        const result = await djangoResponse.json();
-        if (result.status === "success") {
-          statusDiv.innerText = "Enrollment successful and saved!";
+        const saveData = await saveResponse.json();
+        if (saveData.status === "success") {
+          statusDiv.innerText = "Enrollment completed.";
         } else {
-          statusDiv.innerText = "Saved failed: " + (result.message || "Unknown error");
+          statusDiv.innerText = saveData.error || "Error saving to DB.";
         }
 
       } else {
-        statusDiv.innerText = "ESP32 enrollment failed: " + esp32Result.message;
+        statusDiv.innerText = "Enrollment failed: " + esp32Result.message;
       }
 
     } catch (err) {

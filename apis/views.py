@@ -23,18 +23,24 @@ def get_next_free_slot(request):
     return JsonResponse({"error": "No available slots"}, status=400)
 
 
+def check_matric_enrolled(request, matric_number):
+    user_exists = User.objects.filter(MatricNumber=matric_number).exists()
+    fingerprint_exists = FingerprintMapping.objects.filter(matric_number=matric_number).exists()
+    return JsonResponse({"fingerprint_exists": fingerprint_exists, "user_exists": user_exists})
+
+
 def enroll_student(request):
     if request.method == 'POST':
         form = StudentEnrollmentForm(request.POST)
         if form.is_valid():
-            user = form.cleaned_data['user']
+            matric_number = form.cleaned_data['matric_number']
             slot = request.POST.get("slot_id")
 
             if not slot:
                 return JsonResponse({"error": "Missing slot ID"}, status=400)
 
             # Save mapping assuming ESP32 enrollment already succeeded
-            FingerprintMapping.objects.create(user=user, fingerprint_id=int(slot))
+            FingerprintMapping.objects.create(matric_number=matric_number, fingerprint_id=int(slot))
             return JsonResponse({"status": "success", "message": "Enrollment completed."})
     else:
         form = StudentEnrollmentForm()

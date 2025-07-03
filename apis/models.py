@@ -23,12 +23,15 @@ class User(models.Model):
         return f"{self.FirstName} {self.LastName} ({self.User_Role})"
 
 class FingerprintMapping(models.Model):
-    user = models.ForeignKey('User', on_delete=models.CASCADE)
-    fingerprint_id = models.IntegerField(unique=True)  # R307 slot ID (0–1000)
     matric_number = models.CharField(max_length=20, unique=True)
+    fingerprint_id = models.IntegerField(unique=True)  # R307 slot ID (0–1000)
 
     def __str__(self):
         return f"{self.matric_number} → Slot {self.fingerprint_id}"
+
+    def get_user(self):
+        return User.objects.get(MatricNumber=self.matric_number)
+
 
 """
 class Course(models.Model):
