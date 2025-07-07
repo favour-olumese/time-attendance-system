@@ -1,5 +1,4 @@
 from django.db import models
-from django.utils import timezone
 
 # User Roles
 from django.core.exceptions import ValidationError
@@ -25,6 +24,11 @@ class User(models.Model):
         return f"{self.FirstName} {self.LastName} ({self.User_Role})"
 
     def clean(self):
+        """
+        This ensures the matric numbers and level is mandatory for students,
+        but is not allowed for lecturers.
+        """
+
         # Conditional validation for Student
         if self.User_Role == 'Student':
             if not self.MatricNumber:
@@ -41,14 +45,15 @@ class User(models.Model):
 
 
 class FingerprintMapping(models.Model):
-    matric_number = models.CharField(max_length=20, unique=True)
-    fingerprint_id = models.IntegerField(unique=True)  # R307 slot ID (0–1000)
+    """
+    Maps fingerprints to users.
+    """
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    fingerprint_id = models.IntegerField(unique=True)
 
     def __str__(self):
-        return f"{self.matric_number} → Slot {self.fingerprint_id}"
-
-    def get_user(self):
-        return User.objects.get(MatricNumber=self.matric_number)
+        return f"{self.user} → Slot {self.fingerprint_id}"
 
 
 """

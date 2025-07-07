@@ -19,6 +19,7 @@
 <div id="status"></div>
 
 <script>
+  const role = "{{ role }}";
   const form = document.getElementById('enroll-form');
   const statusDiv = document.getElementById('status');
 
@@ -27,13 +28,18 @@
     statusDiv.innerText = "Checking availability...";
 
     const formData = new FormData(form);
-    const matricNumber = formData.get("matric_number");
+    const identifier = role === "Student" ? formData.get("matric_number") : formData.get("email");
 
     try {
-      // Step 1: Check if already mapped
-      const checkResponse = await fetch(`/api/check_matric/${matricNumber}/`);
+      // Check if already mapped
+      let checkResponse;
+      if (role === "Student") {
+        checkResponse = await fetch(`/api/check_matric/${identifier}/`);
+      } else if (role === "Lecturer") {
+        checkResponse = await fetch(`/api/check_email/${identifier}/`);
+      }
+
       const checkData = await checkResponse.json();
-      console.log(checkData)
       if (checkData.fingerprint_exists) {
         statusDiv.innerText = "User already enrolled!";
         return;
@@ -42,27 +48,38 @@
         return;
       }
 
-      // Step 2: Get slot
+      // Get a slot
       const slotResponse = await fetch("{% url 'get-next-slot' %}");
       const slotData = await slotResponse.json();
       const slot = slotData.slot;
       document.getElementById('slot-id').value = slot;
 
-      // Step 3: Send to ESP32
+      // Send data to ESP32
       const esp32Response = await fetch(`http://192.168.43.5/enroll?slot=${slot}`);
       const esp32Result = await esp32Response.json();
 
       if (esp32Result.status === "success") {
         statusDiv.innerText = "Fingerprint enrolled. Saving...";
         
-        // Submit the form to save to DB
-        const saveResponse = await fetch("{% url 'enroll-student' %}", {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-          }
-        });
+        // Submit the form to save to DB        
+        let saveResponse;
+        if (role === "Student") {
+          saveResponse = await fetch("{% url 'enroll-student' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+          });
+        } else if (role === "Lecturer") {
+          saveResponse = await fetch("{% url 'enroll-lecturer' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+          });
+        }
 
         const saveData = await saveResponse.json();
         if (saveData.status === "success") {
