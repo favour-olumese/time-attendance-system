@@ -25,7 +25,7 @@ def get_next_free_slot(request):
 
 def check_matric_enrolled(request, matric_number):
     try:
-        user = User.objects.get(MatricNumber=matric_number)
+        user = User.objects.get(matric_number=matric_number)
         fingerprint_exists = FingerprintMapping.objects.filter(user=user).exists()
         return JsonResponse({"fingerprint_exists": fingerprint_exists, "user_exists": True})
     except User.DoesNotExist:
@@ -43,7 +43,7 @@ def enroll_student(request):
                 return JsonResponse({"error": "Missing slot ID"}, status=400)
 
             try:
-                user = User.objects.get(MatricNumber=matric_number)
+                user = User.objects.get(matric_number=matric_number)
                 FingerprintMapping.objects.create(user=user, fingerprint_id=int(slot))
                 return JsonResponse({"status": "success", "message": "Enrollment completed."})
             except User.DoesNotExist:
@@ -57,7 +57,7 @@ def enroll_student(request):
 
 def check_lecturer_email_enrolled(request, email):
     try:
-        user = User.objects.get(Email=email)
+        user = User.objects.get(email=email)
         fingerprint_exists = FingerprintMapping.objects.filter(user=user).exists()
         return JsonResponse({"fingerprint_exists": fingerprint_exists, "user_exists": True})
     except User.DoesNotExist:
@@ -75,7 +75,7 @@ def enroll_lecturer(request):
                 return JsonResponse({"error": "Missing slot ID"}, status=400)
 
             try:
-                user = User.objects.get(Email=email)
+                user = User.objects.get(email=email)
                 FingerprintMapping.objects.create(user=user, fingerprint_id=int(slot))
                 return JsonResponse({"status": "success", "message": "Enrollment completed."})
             except User.DoesNotExist:

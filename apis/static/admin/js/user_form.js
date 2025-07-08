@@ -1,7 +1,12 @@
 document.addEventListener('DOMContentLoaded', function () {
-    const roleField = document.querySelector('#id_User_Role');
-    const matricField = document.querySelector('#id_MatricNumber').closest('.form-row');
-    const levelField = document.querySelector('#id_Level').closest('.form-row');
+    /*
+    This function hides the matric number and level field of the User model 
+    until the student's role is chosen.
+    */
+
+    const roleField = document.querySelector('#id_user_role');
+    const matricField = document.querySelector('#id_matric_number').closest('.form-row');
+    const levelField = document.querySelector('#id_level').closest('.form-row');
 
     function toggleFields() {
         if (roleField.value === 'Student') {

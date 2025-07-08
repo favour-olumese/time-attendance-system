@@ -4,24 +4,28 @@ from django.db import models
 from django.core.exceptions import ValidationError
 
 class User(models.Model):
+    """
+    The User Model for students and lecturers.
+    """
+    
     USER_ROLES = (
         ('Student', 'Student'),
         ('Lecturer', 'Lecturer'),
     )
 
-    UserID = models.AutoField(primary_key=True)
-    FirstName = models.CharField(max_length=50)
-    LastName = models.CharField(max_length=50)
-    OtherName = models.CharField(max_length=50, blank=True, null=True)
-    MatricNumber = models.CharField(max_length=20, unique=True, blank=True, null=True)  # For students only
-    Email = models.EmailField(unique=True)
-    Level = models.CharField(max_length=20, blank=True, null=True)  # For students only
-    Department = models.CharField(max_length=100)
-    Faculty = models.CharField(max_length=100)
-    User_Role = models.CharField(max_length=10, choices=USER_ROLES)
+    user_id = models.AutoField(primary_key=True)
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    other_name = models.CharField(max_length=50, blank=True, null=True)
+    matric_number = models.CharField(max_length=20, unique=True, blank=True, null=True)  # For students only
+    email = models.EmailField(unique=True)
+    level = models.CharField(max_length=20, blank=True, null=True)  # For students only
+    department = models.CharField(max_length=100)
+    faculty = models.CharField(max_length=100)
+    user_role = models.CharField(max_length=10, choices=USER_ROLES)
 
     def __str__(self):
-        return f"{self.FirstName} {self.LastName} ({self.User_Role})"
+        return f"{self.first_name} {self.last_name} ({self.user_role})"
 
     def clean(self):
         """
@@ -30,18 +34,18 @@ class User(models.Model):
         """
 
         # Conditional validation for Student
-        if self.User_Role == 'Student':
-            if not self.MatricNumber:
-                raise ValidationError({'MatricNumber': "Matric Number is required for students."})
-            if not self.Level:
-                raise ValidationError({'Level': "Level is required for students."})
+        if self.user_role == 'Student':
+            if not self.matric_number:
+                raise ValidationError({'matric_number': "Matric Number is required for students."})
+            if not self.level:
+                raise ValidationError({'level': "Level is required for students."})
             
-        # Prevent MatricNumber or Level for Lecturers
-        elif self.User_Role == 'Lecturer':
-            if self.MatricNumber:
-                raise ValidationError({'MatricNumber': "Lecturers should not have Matric Numbers."})
-            if self.Level:
-                raise ValidationError({'Level': "Lecturers should not have a Level."})
+        # Prevent matric_number or level for Lecturers
+        elif self.user_role == 'Lecturer':
+            if self.matric_number:
+                raise ValidationError({'matric_number': "Lecturers should not have Matric Numbers."})
+            if self.level:
+                raise ValidationError({'level': "Lecturers should not have a Level."})
 
 
 class FingerprintMapping(models.Model):
@@ -67,7 +71,7 @@ class Course(models.Model):
 
 class Enrollment(models.Model):
     EnrolmentID = models.AutoField(primary_key=True)
-    Student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'User_Role': 'Student'})
+    Student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Student'})
     Course = models.ForeignKey(Course, on_delete=models.CASCADE)
     Semester = models.CharField(max_length=20)
 
@@ -77,7 +81,7 @@ class Enrollment(models.Model):
 class ClassSession(models.Model):
     ClassSessionID = models.AutoField(primary_key=True)
     Course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    Lecturer = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'User_Role': 'Lecturer'})
+    Lecturer = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Lecturer'})
     SessionDateTime = models.DateTimeField(default=timezone.now)
     IsActive = models.BooleanField(default=False)
     SessionEndTime = models.DateTimeField(null=True, blank=True)
@@ -88,7 +92,7 @@ class ClassSession(models.Model):
 class AttendanceLog(models.Model):
     LogID = models.AutoField(primary_key=True)
     ClassSession = models.ForeignKey(ClassSession, on_delete=models.CASCADE)
-    Student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'User_Role': 'Student'})
+    Student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Student'})
     ScanTimestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -96,7 +100,7 @@ class AttendanceLog(models.Model):
 
 class AttendanceScore(models.Model):
     ScoreID = models.AutoField(primary_key=True)
-    Student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'User_Role': 'Student'})
+    Student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Student'})
     Course = models.ForeignKey(Course, on_delete=models.CASCADE)
     Semester = models.CharField(max_length=20)
     CalculatedScore = models.FloatField(default=0)
