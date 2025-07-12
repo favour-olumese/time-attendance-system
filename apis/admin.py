@@ -1,10 +1,13 @@
 from django import forms
 from django.contrib import admin
-from .models import User, FingerprintMapping
+from .models import User, FingerprintMapping, Course, Department, Faculty
 # Register your models here.
 
 # admin.site.register(User)
 admin.site.register(FingerprintMapping)
+admin.site.register(Course)
+admin.site.register(Department)
+admin.site.register(Faculty)
 
 
 class UserAdminForm(forms.ModelForm):
@@ -18,8 +21,8 @@ class UserAdminForm(forms.ModelForm):
             'email',
             'matric_number',
             'level',
-            'department',
             'faculty',
+            'department',
             ]
 
     class Media:
