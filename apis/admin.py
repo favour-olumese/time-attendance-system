@@ -28,8 +28,39 @@ class UserAdminForm(forms.ModelForm):
     class Media:
         js = ('admin/js/user_form.js',)  # Reference custom JS
 
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        if user.pk is None:  # New user
+            user.set_password(user.last_name)
+        if commit:
+            user.save()
+        return user
+
 
 class UserAdmin(admin.ModelAdmin):
     form = UserAdminForm
+    add_form = UserAdminForm
+
+    model = User
+
+    list_display = ('email', 'first_name', 'last_name', 'user_role', 'is_staff')
+    list_filter = ('user_role', 'faculty', 'department', 'is_staff')
+    ordering = ('email',)
+
+    # Hide password fields from the admin form
+    fieldsets = (
+        (None, {
+            'fields': ('user_role', 'first_name', 'last_name', 'other_name', 'email', 'matric_number', 'level', 'faculty', 'department', 'is_active', 'is_staff', 'is_superuser')
+        }),
+    )
+
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('user_role', 'first_name', 'last_name', 'other_name', 'email', 'matric_number', 'level', 'faculty', 'department'),
+        }),
+    )
+
+    search_fields = ('email', 'matric_number', 'first_name', 'last_name')
 
 admin.site.register(User, UserAdmin)

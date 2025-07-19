@@ -3,9 +3,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import FingerprintMapping, User
 from .utils import get_next_available_slot_id
+from django.contrib.auth import authenticate, login
 from .forms import StudentEnrollmentForm, LecturerEnrollmentForm
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import JsonResponse
+from django.contrib import messages
 
 
 def get_next_free_slot_value():
@@ -85,3 +87,24 @@ def enroll_lecturer(request):
         form = LecturerEnrollmentForm()
 
     return render(request, 'enroll_form.html', {'form': form, 'role': 'Lecturer'})
+
+
+def user_login(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')  # email or matric_number
+        password = request.POST.get('password')
+
+        user = authenticate(request, username=username, password=password)
+        print(user)
+        if user is not None:
+            login(request, user)
+            messages.success(request, f"Welcome, {user.first_name}")
+            return redirect('dashboard')  # or any success page
+        else:
+            messages.error(request, "Invalid login credentials.")
+    
+    return render(request, 'registration/login.html')
+
+
+def dashboard(request):
+    return render(request, 'dashboard.html')

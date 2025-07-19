@@ -1,6 +1,8 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from smart_selects.db_fields import ChainedForeignKey # For linking two fields
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from django.contrib.auth.hashers import make_password
 
 LEVEL_CHOICES = [(str(lvl), f"{lvl} Level") for lvl in range(100, 700, 100)]
 
@@ -40,7 +42,43 @@ class Course(models.Model):
         return f"{self.course_code} - {self.course_name}"
 
 
-class User(models.Model):
+class UserManager(BaseUserManager):
+    """
+    Creates a password automatically from the lowercase last–name
+    if none is supplied.
+    """
+
+    def create_user(self, email, last_name=None, matric_number=None, password=None, **extra_fields):
+        if not email and not matric_number:
+            raise ValueError("A user must have either an email or matric number.")
+
+        email = self.normalize_email(email)
+        password = password or (last_name.lower() if last_name else 'default123')
+
+        # Remove fields explicitly passed from extra_fields
+        extra_fields.setdefault('matric_number', matric_number)
+        extra_fields.setdefault('last_name', last_name)
+
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)  # Use Django's built-in hasher
+        user.save(using=self._db)
+        return user
+
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("user_role", "Admin")  # User role of super users
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
+        return self.create_user(email=email, password=password, **extra_fields)
+
+
+class User(AbstractBaseUser, PermissionsMixin):
     """
     The User Model for students and lecturers.
     """
@@ -71,8 +109,29 @@ class User(models.Model):
     )
     user_role = models.CharField(max_length=10, choices=USER_ROLES)
 
+    is_staff     = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
+    is_active    = models.BooleanField(default=True)
+    objects = UserManager()
+
+    USERNAME_FIELD  = "email"
+    REQUIRED_FIELDS = ['first_name', 'last_name']
+
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.user_role})"
+
+    def save(self, *args, **kwargs):
+        # Normalize email to lowercase
+        if self.email:
+            self.email = self.email.strip().lower()
+
+        # Title case the names
+        self.first_name = self.first_name.title()
+        self.last_name = self.last_name.title()
+        if self.other_name:
+            self.other_name = self.other_name.title()
+
+        super().save(*args, **kwargs)
 
     def clean(self):
         """
@@ -108,16 +167,6 @@ class FingerprintMapping(models.Model):
 
 
 """
-class Course(models.Model):
-    course_id = models.AutoField(primary_key=True)
-    course_name = models.CharField(max_length=100)
-    course_code = models.CharField(max_length=20, unique=True)  # For validation
-    // Make a course accessible to a student based on department and minimum level
-    // Courses should be assigned to lecturers on the backend
-
-    def __str__(self):
-        return self.CourseName
-
 class Enrollment(models.Model):
     EnrolmentID = models.AutoField(primary_key=True)
     Student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Student'})

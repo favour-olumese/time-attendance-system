@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'apis',
-    'smart_selects',
+    'smart_selects', # For chaining a model field to another.
 ]
 
 MIDDLEWARE = [
@@ -122,3 +122,11 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# For authentication
+AUTH_USER_MODEL = 'apis.User'
+
+AUTHENTICATION_BACKENDS = [
+    'apis.auth_backends.MatricOrEmailBackend',
+    'django.contrib.auth.backends.ModelBackend',  # fallback
+]
