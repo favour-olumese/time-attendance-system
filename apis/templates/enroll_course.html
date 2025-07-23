@@ -1,0 +1,45 @@
+{% block content %}
+<div class="container">
+    <h2>Enroll in Courses</h2>
+
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li class="{{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+        <fieldset>
+            <legend>Select Courses:</legend>
+            
+            <!-- Add this to display any non-field errors -->
+            {% if form.non_field_errors %}
+                <div class="form-errors">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <!-- This will now display the specific error from the form -->
+            {{ form.course.errors }}
+            {{ form.course }}
+        </fieldset>
+
+        <button type="submit">Enroll</button>
+    </form>
+
+    {% if enrolled_courses %}
+        <hr>
+        <h3>Already Enrolled Courses (This Semester):</h3>
+        <ul>
+            {% for enrollment in enrolled_courses %}
+                <li>
+                    {{ enrollment.course.course_code }} - {{ enrollment.course.course_name }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</div>
+{% endblock %}

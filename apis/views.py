@@ -1,14 +1,12 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import FingerprintMapping, User
-from .utils import get_next_available_slot_id
+from .models import FingerprintMapping, User, CurrentSemester, CourseEnrollment
 from django.contrib.auth import authenticate, login
-from .forms import StudentEnrollmentForm, LecturerEnrollmentForm
+from .forms import StudentEnrollmentForm, LecturerEnrollmentForm, CourseEnrollmentForm
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
-
+from .models import CourseEnrollment, CurrentSemester
+from .forms import CourseEnrollmentForm
+from django.contrib.auth.decorators import login_required
 
 def get_next_free_slot_value():
     used = FingerprintMapping.objects.values_list('fingerprint_id', flat=True)
@@ -54,7 +52,7 @@ def enroll_student(request):
     else:
         form = StudentEnrollmentForm()
 
-    return render(request, 'enroll_form.html', {'form': form, 'role': 'Student'})
+    return render(request, 'enroll_fingerprint.html', {'form': form, 'role': 'Student'})
 
 
 def check_lecturer_email_enrolled(request, email):
@@ -86,7 +84,7 @@ def enroll_lecturer(request):
     else:
         form = LecturerEnrollmentForm()
 
-    return render(request, 'enroll_form.html', {'form': form, 'role': 'Lecturer'})
+    return render(request, 'enroll_fingerprint.html', {'form': form, 'role': 'Lecturer'})
 
 
 def user_login(request):
@@ -108,3 +106,48 @@ def user_login(request):
 
 def dashboard(request):
     return render(request, 'dashboard.html')
+
+
+@login_required 
+def enroll_in_course(request):
+    if request.user.user_role != 'Student':
+        messages.error(request, "Only students can enroll in courses.")
+        return redirect('dashboard')
+
+    # Get current semester once
+    try:
+        current_semester = CurrentSemester.objects.select_related('semester').first().semester
+    except (CurrentSemester.DoesNotExist, AttributeError):
+        messages.error(request, "Current semester is not set. Please contact admin.")
+        return redirect('dashboard')
+
+    if request.method == "POST":
+        # Pass the user to the form
+        form = CourseEnrollmentForm(request.POST, user=request.user)
+        if form.is_valid():
+            # All validation is done, we can now create the object
+            enrollment = form.save(commit=False)
+            enrollment.student = request.user
+            enrollment.semester = current_semester
+            enrollment.save()
+
+            messages.success(request, f"Successfully enrolled in {enrollment.course.course_code}!")
+            return redirect('enroll-course')
+        else:
+            # Form errors will be displayed automatically by the template
+            # We can add a generic error message if we want
+            messages.error(request, "Please correct the errors below.")
+    else:
+        # Pass the user to the form for the initial GET request as well
+        form = CourseEnrollmentForm(user=request.user)
+
+    # Get already enrolled courses to display on the page
+    enrolled_courses = CourseEnrollment.objects.filter(
+        student=request.user, 
+        semester=current_semester
+    ).select_related('course')
+
+    return render(request, 'enroll_course.html', {
+        'form': form,
+        'enrolled_courses': enrolled_courses
+    })

@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from smart_selects.db_fields import ChainedForeignKey # For linking two fields
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.contrib.auth.hashers import make_password
+from django.core.validators import RegexValidator
 
 LEVEL_CHOICES = [(str(lvl), f"{lvl} Level") for lvl in range(100, 700, 100)]
 
@@ -22,7 +23,36 @@ class Department(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.faculty})"
-    
+
+
+class Semester(models.Model):
+    SEMESTER_CHOICES = [
+        ("First", "First Semester"),
+        ("Second", "Second Semester"),
+    ]
+
+    name = models.CharField(max_length=10, choices=SEMESTER_CHOICES)
+
+    session = models.CharField(
+        max_length=9,  # "2024/2025" is 9 characters
+        validators=[
+            RegexValidator(
+                regex=r'^\d{4}/\d{4}$',
+                message="Session must be in the format 'YYYY/YYYY'."
+            )
+        ]
+    )
+
+    def __str__(self):
+        return f"{self.name} Semester {self.session}"
+
+
+class CurrentSemester(models.Model):
+    semester = models.OneToOneField(Semester, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"Current: {self.semester}"
+   
 
 class Course(models.Model):
     course_id = models.AutoField(primary_key=True)
@@ -30,7 +60,7 @@ class Course(models.Model):
     course_code = models.CharField(max_length=20, unique=True)
     departments = models.ManyToManyField('Department', related_name='courses')
     minimum_level = models.CharField(max_length=10, choices=LEVEL_CHOICES)
-
+    available_semesters = models.ManyToManyField(Semester, related_name='offered_courses')
     lecturers = models.ManyToManyField(
         'User',
         limit_choices_to={'user_role': 'Lecturer'},
@@ -118,7 +148,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ['first_name', 'last_name']
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name} ({self.user_role})"
+        return f"{self.first_name} {self.last_name} ({self.user_role} - {self.department})"
 
     def save(self, *args, **kwargs):
         # Normalize email to lowercase
@@ -166,16 +196,19 @@ class FingerprintMapping(models.Model):
         return f"{self.user} → Slot {self.fingerprint_id}"
 
 
-"""
-class Enrollment(models.Model):
-    EnrolmentID = models.AutoField(primary_key=True)
-    Student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Student'})
-    Course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    Semester = models.CharField(max_length=20)
+class CourseEnrollment(models.Model):
+    enrolmentID = models.AutoField(primary_key=True)
+    student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Student'})
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    semester = models.ForeignKey(Semester, on_delete=models.PROTECT)
+
+    class Meta:
+        unique_together = ("student", "course", "semester")
 
     def __str__(self):
-        return f"{self.Student} enrolled in {self.Course}"
+        return f"{self.student} - {self.course} ({self.semester if self.semester_id else 'No semester'})"
 
+"""
 class ClassSession(models.Model):
     ClassSessionID = models.AutoField(primary_key=True)
     Course = models.ForeignKey(Course, on_delete=models.CASCADE)
