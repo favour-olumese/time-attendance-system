@@ -10,4 +10,7 @@ urlpatterns = [
     path('check_matric/<str:matric_number>/', views.check_matric_enrolled, name='check-matric'),
     path('check_email/<str:email>/', views.check_lecturer_email_enrolled, name='check-email'),
     path('course/enroll/', views.enroll_in_course, name='enroll-course'),
+    path('session/start/', views.start_session, name='api-start-session'),
+    path('session/end/', views.end_session, name='api-end-session'),
+    path('attendance/mark/', views.mark_attendance, name='api-mark-attendance'),
 ]

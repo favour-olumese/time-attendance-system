@@ -2,7 +2,6 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from smart_selects.db_fields import ChainedForeignKey # For linking two fields
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
-from django.contrib.auth.hashers import make_password
 from django.core.validators import RegexValidator
 
 LEVEL_CHOICES = [(str(lvl), f"{lvl} Level") for lvl in range(100, 700, 100)]
@@ -208,6 +207,49 @@ class CourseEnrollment(models.Model):
     def __str__(self):
         return f"{self.student} - {self.course} ({self.semester if self.semester_id else 'No semester'})"
 
+
+class AttendanceSession(models.Model):
+    """
+    Represents a single, live attendance session for a class.
+    Created when a lecturer starts a class, and closed when they end it.
+    """
+    session_id = models.AutoField(primary_key=True)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    lecturer = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Lecturer'})
+    semester = models.ForeignKey(Semester, on_delete=models.CASCADE)
+    
+    # Timestamps to track the session duration
+    start_time = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True) # Set when lecturer ends the session
+
+    # A flag to know if students can currently mark their attendance
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        status = "Active" if self.is_active else "Ended"
+        return f"Session for {self.course.course_code} on {self.start_time.strftime('%Y-%m-%d')} ({status})"
+
+
+class AttendanceRecord(models.Model):
+    """
+    A record of a single student's attendance in a specific session.
+    """
+    record_id = models.AutoField(primary_key=True)
+    session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name="attendees")
+    student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Student'})
+    
+    # Timestamp of when the student's fingerprint was scanned
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    # Field for the "mark accrued" as mentioned in your requirements
+    marks_awarded = models.PositiveSmallIntegerField(default=1, help_text="Marks awarded for this attendance.")
+
+    class Meta:
+        # A student can only have one attendance record per session
+        unique_together = ("session", "student")
+
+    def __str__(self):
+        return f"{self.student} attended session {self.session.session_id}"
 """
 class ClassSession(models.Model):
     ClassSessionID = models.AutoField(primary_key=True)
