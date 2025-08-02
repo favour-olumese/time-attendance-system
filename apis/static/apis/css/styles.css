@@ -1,0 +1,56 @@
+.summary-card, .session-card {
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.table th, .table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.table th {
+    background-color: #f2f2f2;
+}
+
+.progress-bar {
+    background-color: #e9ecef;
+    border-radius: .25rem;
+    display: flex;
+    height: 20px;
+    overflow: hidden;
+}
+
+.progress {
+    background-color: #0d6efd;
+    color: white;
+    text-align: center;
+    line-height: 20px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.btn {
+    display: inline-block;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.btn-primary {
+    color: #fff;
+    background-color: #0d6efd;
+    border: 1px solid #0d6efd;
+}

@@ -1,14 +1,16 @@
+import csv
 import json
 from .models import FingerprintMapping, User, CurrentSemester, CourseEnrollment, Course, AttendanceSession, AttendanceRecord
 from django.contrib.auth import authenticate, login
 from .forms import StudentEnrollmentForm, LecturerEnrollmentForm, CourseEnrollmentForm
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-
+from django.db.models import Count, Q # Import Count and Q for annotations
+from django.http import HttpResponse
 
 def get_next_free_slot_value():
     used = FingerprintMapping.objects.values_list('fingerprint_id', flat=True)
@@ -315,3 +317,131 @@ def end_session(request):
         return JsonResponse({'error': 'Invalid JSON format.'}, status=400)
     except Exception as e:
         return JsonResponse({'error': f'An unexpected error occurred: {str(e)}'}, status=500)
+
+
+@login_required
+def lecturer_course_list(request):
+    """
+    Displays a list of all courses assigned to the logged-in lecturer.
+    """
+    # Ensure the user is a lecturer
+    if request.user.user_role != 'Lecturer':
+        messages.error(request, "You do not have permission to view this page.")
+        return redirect('dashboard')
+
+    # Get all courses assigned to this lecturer
+    courses = request.user.assigned_courses.all().order_by('course_code')
+
+    context = {
+        'courses': courses,
+    }
+    return render(request, 'attendance/lecturer_course_list.html', context)
+
+
+@login_required
+def course_attendance_detail(request, course_id):
+    """
+    Displays all attendance sessions and records for a specific course.
+    """
+    # Ensure the user is a lecturer
+    if request.user.user_role != 'Lecturer':
+        messages.error(request, "You do not have permission to view this page.")
+        return redirect('dashboard')
+
+    # Get the course, but also verify the logged-in lecturer is assigned to it.
+    # get_object_or_404 is great will raise a 404 error if the course
+    # doesn't exist OR if the current user is not in the 'lecturers' list for that course.
+    course = get_object_or_404(Course, pk=course_id, lecturers=request.user)
+
+    # GET DETAILED SESSION LOG
+
+    # Get all attendance sessions for this course, newest first.
+    # prefetch_related get all related attendance records
+    # and student details in a minimal number of database queries. This avoids the N+1 problem.
+    sessions = AttendanceSession.objects.filter(course=course).order_by('-start_time').prefetch_related('attendees__student')
+
+    # CALCULATE ATTENDANCE SUMMARY
+
+    # Get the total number of sessions held for this course.
+    total_sessions_count = sessions.count()
+
+    attendance_summary = []
+    if total_sessions_count > 0:
+        # Get all students enrolled in the course.
+        # We use distinct() because a student might be enrolled via multiple departments sharing a course.
+        enrolled_students = User.objects.filter(courseenrollment__course=course).distinct()
+
+        # Annotate each student with the count of their attendance records for this specific course.
+        # The filter inside Count() is crucial to ensure we only count attendance for this course.
+        students_with_attendance = enrolled_students.annotate(
+            attended_count=Count(
+                'attendancerecord',
+                filter=Q(attendancerecord__session__course=course)
+            )
+        )
+
+        # Build the summary data list for the template
+        for student in students_with_attendance:
+            percentage = (student.attended_count / total_sessions_count) * 100
+            attendance_summary.append({
+                'student': student,
+                'attended_count': student.attended_count,
+                'percentage': percentage,
+            })
+
+    context = {
+        'course': course,
+        'sessions': sessions,
+        'total_sessions_count': total_sessions_count,
+        'attendance_summary': attendance_summary,
+    }
+    return render(request, 'attendance/course_attendance_detail.html', context)
+
+
+@login_required
+def download_attendance_summary(request, course_id):
+    """
+    Handles the logic to generate and download an attendance summary as a CSV file.
+    """
+    # Ensure the user is a lecturer assigned to this course.
+    if request.user.user_role != 'Lecturer':
+        messages.error(request, "Permission denied.")
+        return redirect('dashboard')
+    
+    course = get_object_or_404(Course, pk=course_id, lecturers=request.user)
+
+    # Data Calculation
+    total_sessions_count = AttendanceSession.objects.filter(course=course).count()
+
+    if total_sessions_count == 0:
+        messages.error(request, "No attendance data to download for this course.")
+        return redirect('course_attendance_detail', course_id=course.pk)
+
+    enrolled_students = User.objects.filter(courseenrollment__course=course).distinct()
+    students_with_attendance = enrolled_students.annotate(
+        attended_count=Count('attendancerecord', filter=Q(attendancerecord__session__course=course))
+    )
+
+    # CSV Generation
+    # Create the HttpResponse object with the appropriate CSV headers.
+    response = HttpResponse(content_type='text/csv')
+    # This header tells the browser to treat the response as a file attachment.
+    response['Content-Disposition'] = f'attachment; filename="attendance_summary_{course.course_code}.csv"'
+
+    writer = csv.writer(response)
+
+    # Write the header row for the CSV file.
+    writer.writerow(['Student Name', 'Matric Number', 'Classes Attended', 'Total Classes', 'Attendance Score (%)'])
+
+    # Write data rows
+    for student in students_with_attendance:
+        percentage = (student.attended_count / total_sessions_count) * 100
+        writer.writerow([
+            student.get_full_name,
+            student.matric_number,
+            student.attended_count,
+            total_sessions_count,
+            f'{percentage:.1f}'  # Format percentage to one decimal place
+        ])
+
+    return response

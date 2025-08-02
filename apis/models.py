@@ -162,6 +162,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         super().save(*args, **kwargs)
 
+    @property
+    def get_full_name(self):
+        """Returns the user's full name."""
+        return f"{self.first_name} {self.last_name}"
+
     def clean(self):
         """
         This ensures the matric numbers and level is mandatory for students,

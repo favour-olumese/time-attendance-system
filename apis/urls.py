@@ -13,4 +13,7 @@ urlpatterns = [
     path('session/start/', views.start_session, name='api-start-session'),
     path('session/end/', views.end_session, name='api-end-session'),
     path('attendance/mark/', views.mark_attendance, name='api-mark-attendance'),
+    path('attendance/my-courses/', views.lecturer_course_list, name='lecturer_course_list'),
+    path('attendance/course/<int:course_id>/', views.course_attendance_detail, name='course_attendance_detail'),
+    path('attendance/course/<int:course_id>/download/', views.download_attendance_summary, name='download_attendance_summary'),
 ]
