@@ -7,7 +7,6 @@ class MatricOrEmailBackend(BaseBackend):
             if '@' in username:
                 # Case-insensitive email lookup
                 user = User.objects.get(email__iexact=username)
-                print(user)
             else:
                 # Case-insensitive matric number lookup
                 user = User.objects.get(matric_number__iexact=username)

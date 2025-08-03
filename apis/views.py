@@ -11,6 +11,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.db.models import Count, Q # Import Count and Q for annotations
 from django.http import HttpResponse
+from django.utils.http import url_has_allowed_host_and_scheme
+
 
 def get_next_free_slot_value():
     used = FingerprintMapping.objects.values_list('fingerprint_id', flat=True)
@@ -97,14 +99,25 @@ def user_login(request):
         password = request.POST.get('password')
 
         user = authenticate(request, username=username, password=password)
-        print(user)
+
         if user is not None:
             login(request, user)
             messages.success(request, f"Welcome, {user.first_name}")
-            return redirect('dashboard')  # or any success page
+            
+            next_url = request.GET.get('next')
+
+            # Ensure the 'next' URL is on the same host.
+            if next_url and url_has_allowed_host_and_scheme(url=next_url, allowed_hosts={request.get_host()}):
+                return redirect(next_url)
+            else:
+                # If 'next' is not present or is an external/unsafe URL, go to dashboard.
+                return redirect('dashboard')
         else:
             messages.error(request, "Invalid login credentials.")
     
+    # Pass the 'next' parameter to the template if it exists, so it can be included in the form
+    # This is a good practice for forms that might not use method="POST" correctly
+    context = {'next': request.GET.get('next', '')}
     return render(request, 'registration/login.html')
 
 
