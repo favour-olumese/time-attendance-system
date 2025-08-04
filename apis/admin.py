@@ -49,13 +49,13 @@ class UserAdmin(admin.ModelAdmin):
     model = User
 
     list_display = ('email', 'first_name', 'last_name', 'user_role', 'is_staff')
-    list_filter = ('user_role', 'faculty', 'department', 'is_staff')
+    list_filter = ('user_role', 'faculty', 'department')
     ordering = ('email',)
 
     # Hide password fields from the admin form
     fieldsets = (
         (None, {
-            'fields': ('user_role', 'first_name', 'last_name', 'other_name', 'email', 'matric_number', 'level', 'faculty', 'department', 'is_active', 'is_staff', 'is_superuser')
+            'fields': ('user_role', 'first_name', 'last_name', 'other_name', 'email', 'matric_number', 'level', 'faculty', 'department')
         }),
     )
 

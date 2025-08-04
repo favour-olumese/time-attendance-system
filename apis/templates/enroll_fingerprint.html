@@ -64,7 +64,7 @@
         // Submit the form to save to DB        
         let saveResponse;
         if (role === "Student") {
-          saveResponse = await fetch("{% url 'enroll-student' %}", {
+          saveResponse = await fetch("{% url 'enroll-student-fingerprint' %}", {
             method: 'POST',
             body: formData,
             headers: {
@@ -72,7 +72,7 @@
             }
           });
         } else if (role === "Lecturer") {
-          saveResponse = await fetch("{% url 'enroll-lecturer' %}", {
+          saveResponse = await fetch("{% url 'enroll-lecturer-fingerprint' %}", {
             method: 'POST',
             body: formData,
             headers: {

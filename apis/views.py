@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.db.models import Count, Q # Import Count and Q for annotations
 from django.http import HttpResponse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.contrib.auth.decorators import user_passes_test
 
 
 def get_next_free_slot_value():
@@ -38,7 +39,14 @@ def check_matric_enrolled(request, matric_number):
         return JsonResponse({"fingerprint_exists": False, "user_exists": False})
 
 
-def enroll_student(request):
+
+# Returns True if the user is authenticated and a staff member.
+def is_admin(user):
+    return user.is_authenticated and user.is_staff
+
+
+@user_passes_test(is_admin)
+def enroll_student_fingerprint(request):
     if request.method == 'POST':
         form = StudentEnrollmentForm(request.POST)
         if form.is_valid():
@@ -49,13 +57,28 @@ def enroll_student(request):
                 return JsonResponse({"error": "Missing slot ID"}, status=400)
 
             try:
+                # Check for existing fingerprint mapping to prevent errors
+                if FingerprintMapping.objects.filter(fingerprint_id=int(slot)).exists():
+                    return JsonResponse({"error": f"Slot {slot} is already in use."}, status=409) # 409 Conflict
+
                 user = User.objects.get(matric_number=matric_number)
+                
+                # Check if the user already has a fingerprint enrolled
+                if FingerprintMapping.objects.filter(user=user).exists():
+                    return JsonResponse({"error": f"User {user.get_full_name} already has a fingerprint enrolled."}, status=409)
+
                 FingerprintMapping.objects.create(user=user, fingerprint_id=int(slot))
                 return JsonResponse({"status": "success", "message": "Enrollment completed."})
-            except User.DoesNotExist:
-                return JsonResponse({"error": "User not found"}, status=404)
 
-    else:
+            except User.DoesNotExist:
+                return JsonResponse({"error": "Student with that Matric Number not found"}, status=404)
+            except ValueError:
+                return JsonResponse({"error": "Invalid slot ID format. Must be a number."}, status=400)
+        else:
+            # If the form is invalid (e.g., matric number format is wrong)
+             return JsonResponse({"error": "Invalid form data.", "details": form.errors}, status=400)
+
+    else: # For GET requests
         form = StudentEnrollmentForm()
 
     return render(request, 'enroll_fingerprint.html', {'form': form, 'role': 'Student'})
@@ -70,7 +93,9 @@ def check_lecturer_email_enrolled(request, email):
         return JsonResponse({"fingerprint_exists": False, "user_exists": False})
 
 
-def enroll_lecturer(request):
+@user_passes_test(is_admin)
+def enroll_lecturer_fingerprint(request):
+
     if request.method == 'POST':
         form = LecturerEnrollmentForm(request.POST)
         if form.is_valid():
@@ -81,13 +106,28 @@ def enroll_lecturer(request):
                 return JsonResponse({"error": "Missing slot ID"}, status=400)
 
             try:
-                user = User.objects.get(email=email)
+                # Check for existing fingerprint mapping to prevent errors
+                if FingerprintMapping.objects.filter(fingerprint_id=int(slot)).exists():
+                    return JsonResponse({"error": f"Slot {slot} is already in use."}, status=409)
+
+                # Find the user by email, and also ensure they are a lecturer
+                user = User.objects.get(email=email, user_role='Lecturer')
+
+                # Check if the user already has a fingerprint enrolled
+                if FingerprintMapping.objects.filter(user=user).exists():
+                    return JsonResponse({"error": f"User {user.get_full_name} already has a fingerprint enrolled."}, status=409)
+
                 FingerprintMapping.objects.create(user=user, fingerprint_id=int(slot))
                 return JsonResponse({"status": "success", "message": "Enrollment completed."})
-            except User.DoesNotExist:
-                return JsonResponse({"error": "User not found"}, status=404)
 
-    else:
+            except User.DoesNotExist:
+                return JsonResponse({"error": "Lecturer with that email not found."}, status=404)
+            except ValueError:
+                return JsonResponse({"error": "Invalid slot ID format. Must be a number."}, status=400)
+        else:
+            return JsonResponse({"error": "Invalid form data.", "details": form.errors}, status=400)
+
+    else: # For GET requests
         form = LecturerEnrollmentForm()
 
     return render(request, 'enroll_fingerprint.html', {'form': form, 'role': 'Lecturer'})
@@ -119,6 +159,7 @@ def user_login(request):
     # This is a good practice for forms that might not use method="POST" correctly
     context = {'next': request.GET.get('next', '')}
     return render(request, 'registration/login.html')
+
 
 @login_required
 def dashboard(request):
