@@ -120,9 +120,59 @@ def user_login(request):
     context = {'next': request.GET.get('next', '')}
     return render(request, 'registration/login.html')
 
-
+@login_required
 def dashboard(request):
-    return render(request, 'dashboard.html')
+    user = request.user
+    context = {
+        'user_role': user.user_role  # Pass the role to the template
+    }
+
+    # Get the current semester, which is needed for both roles
+    current_semester_obj = CurrentSemester.objects.select_related('semester').first()
+    if not current_semester_obj:
+        return render(request, 'dashboard.html', context)
+    
+    current_semester = current_semester_obj.semester
+
+    if user.user_role == 'Student':
+        # Get courses the student is enrolled in for the current semester
+        enrolled_courses = CourseEnrollment.objects.filter(
+            student=user,
+            semester=current_semester
+        ).select_related('course').order_by('course__course_code')
+
+        # Get the student's 5 most recent attendance records
+        recent_attendance = AttendanceRecord.objects.filter(
+            student=user
+        ).select_related('session__course').order_by('-timestamp')[:5]
+
+        context.update({
+            'enrolled_courses': enrolled_courses,
+            'recent_attendance': recent_attendance,
+            'current_semester': current_semester,
+        })
+
+    elif user.user_role == 'Lecturer':
+        # Get courses assigned to the lecturer for the current semester
+        assigned_courses = user.assigned_courses.filter(
+            available_semesters=current_semester
+        ).order_by('course_code')
+
+        # Get the lecturer's 5 most recent sessions, with attendee counts
+        recent_sessions = AttendanceSession.objects.filter(
+            lecturer=user
+        ).select_related('course').annotate(
+            attendee_count=Count('attendees')
+        ).order_by('-start_time')[:5]
+
+        context.update({
+            'assigned_courses': assigned_courses,
+            'recent_sessions': recent_sessions,
+            'current_semester': current_semester,
+        })
+
+    # For Admins or other roles, just render the page with the base context
+    return render(request, 'dashboard.html', context)
 
 
 @login_required 
