@@ -31,7 +31,7 @@ class CourseEnrollmentForm(forms.ModelForm):
             self.fields['course'].queryset = Course.objects.filter(
                 available_semesters=self.current_semester,
                 departments=self.user.department,
-                minimum_level=self.user.level
+                minimum_level__lte=self.user.level
             ).distinct()
         except (CurrentSemester.DoesNotExist, AttributeError):
             self.current_semester = None
