@@ -1,7 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}My Courses{% endblock %}
+
 {% block content %}
-<div class="container">
-    <h2>My Courses - Attendance Overview</h2>
-    <p>Select a course to view its attendance history.</p>
+
+    <h2 class="page-header">My Courses - Attendance Overview</h2>
+    <p>Select a course to view its detailed attendance history.</p>
 
     {% if messages %}
         <ul class="messages">
@@ -21,8 +24,10 @@
                 </h3>
             </div>
         {% empty %}
-            <p>You are not assigned to any courses yet.</p>
+            <div class="card">
+                <p>You are not assigned to any courses yet.</p>
+            </div>
         {% endfor %}
     </div>
-</div>
+
 {% endblock %}

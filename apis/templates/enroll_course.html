@@ -1,45 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Enroll in Course{% endblock %}
+
 {% block content %}
-<div class="container">
-    <h2>Enroll in Courses</h2>
 
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li class="{{ message.tags }}">{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+    <div class="card">
+        <h2 class="page-header">Enroll in Courses</h2>
 
-    <form method="POST">
-        {% csrf_token %}
-        <fieldset>
-            <legend>Select Courses:</legend>
-            
-            <!-- Add this to display any non-field errors -->
-            {% if form.non_field_errors %}
-                <div class="form-errors">
-                    {{ form.non_field_errors }}
-                </div>
-            {% endif %}
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li class="{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
 
-            <!-- This will now display the specific error from the form -->
-            {{ form.course.errors }}
-            {{ form.course }}
-        </fieldset>
-
-        <button type="submit">Enroll</button>
-    </form>
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="{{ form.course.id_for_label }}">Select a Course for {{ current_semester }}:</label>
+                {{ form.course.errors }}
+                {{ form.course }}
+                {% if form.course.help_text %}
+                    <small style="margin-top: 0.5rem; color: var(--secondary-color);">{{ form.course.help_text }}</small>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary">Enroll</button>
+        </form>
+    </div>
 
     {% if enrolled_courses %}
-        <hr>
+    <div class="card">
         <h3>Already Enrolled Courses (This Semester):</h3>
         <ul>
             {% for enrollment in enrolled_courses %}
-                <li>
-                    {{ enrollment.course.course_code }} - {{ enrollment.course.course_name }}
-                </li>
+                <li>{{ enrollment.course.course_code }} - {{ enrollment.course.course_name }}</li>
             {% endfor %}
         </ul>
+    </div>
     {% endif %}
-</div>
+
 {% endblock %}

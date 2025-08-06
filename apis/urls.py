@@ -1,9 +1,10 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('login/', views.user_login, name='login'),
+    path("accounts/", include("django.contrib.auth.urls")),
     path('enroll/student/', views.enroll_student_fingerprint, name='enroll-student-fingerprint'),
     path('enroll/lecturer/', views.enroll_lecturer_fingerprint, name='enroll-lecturer-fingerprint'),
 

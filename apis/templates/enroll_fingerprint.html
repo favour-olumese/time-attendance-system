@@ -1,100 +1,102 @@
-<h2>Enroll {{ role }} Fingerprint</h2>
+{% extends 'base.html' %}
+{% block title %}Enroll Fingerprint{% endblock %}
 
-<form id="enroll-form" method="post">
-  {% csrf_token %}
-  {% if role == "Student" %}
-    <label>Matric Number:</label>
-     {{ form.matric_number }}
-  {% else %}
-    <label>Email:</label>
-     {{ form.email }}
-  {% endif %}
- 
+{% block content %}
 
-  <input type="hidden" id="slot-id" name="slot_id">
-  <button type="submit">Enroll</button>
-</form>
+  <div class="card">
+      <h2 class="page-header">Enroll {{ role }} Fingerprint</h2>
 
+      <form id="enroll-form" method="post">
+          {% csrf_token %}
+          <div class="form-group">
+              {% if role == "Student" %}
+                  <label for="{{ form.matric_number.id_for_label }}">Matric Number:</label>
+                  {{ form.matric_number }}
+              {% else %}
+                  <label for="{{ form.email.id_for_label }}">Email:</label>
+                  {{ form.email }}
+              {% endif %}
+          </div>
+          <input type="hidden" id="slot-id" name="slot_id">
+          <button type="submit" class="btn btn-primary">Find User & Start Enrollment</button>
+      </form>
 
-<div id="status"></div>
+      <div id="status" class="messages" style="margin-top: 1.5rem;"></div>
+  </div>
 
-<script>
-  const role = "{{ role }}";
-  const form = document.getElementById('enroll-form');
-  const statusDiv = document.getElementById('status');
+  <script>
+    // Your JavaScript remains the same
+    const role = "{{ role }}";
+    const form = document.getElementById('enroll-form');
+    const statusDiv = document.getElementById('status');
 
-  form.addEventListener('submit', async function (e) {
-    e.preventDefault();
-    statusDiv.innerText = "Checking availability...";
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      statusDiv.innerHTML = `<li class="info">Checking availability...</li>`;
 
-    const formData = new FormData(form);
-    const identifier = role === "Student" ? formData.get("matric_number") : formData.get("email");
+      const formData = new FormData(form);
+      const identifier = role === "Student" ? formData.get("matric_number") : formData.get("email");
 
-    try {
-      // Check if already mapped
-      let checkResponse;
-      if (role === "Student") {
-        checkResponse = await fetch(`/api/check_matric/${identifier}/`);
-      } else if (role === "Lecturer") {
-        checkResponse = await fetch(`/api/check_email/${identifier}/`);
-      }
-
-      const checkData = await checkResponse.json();
-      if (checkData.fingerprint_exists) {
-        statusDiv.innerText = "User already enrolled!";
-        return;
-      } else if (!checkData.user_exists) {
-        statusDiv.innerText = "User does not exist!";
-        return;
-      }
-
-      // Get a slot
-      const slotResponse = await fetch("{% url 'get-next-slot' %}");
-      const slotData = await slotResponse.json();
-      const slot = slotData.slot;
-      document.getElementById('slot-id').value = slot;
-
-      // Send data to ESP32
-      const esp32Response = await fetch(`http://192.168.43.5/enroll?slot=${slot}`);
-      const esp32Result = await esp32Response.json();
-
-      if (esp32Result.status === "success") {
-        statusDiv.innerText = "Fingerprint enrolled. Saving...";
-        
-        // Submit the form to save to DB        
-        let saveResponse;
+      try {
+        let checkResponse;
         if (role === "Student") {
-          saveResponse = await fetch("{% url 'enroll-student-fingerprint' %}", {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-            }
-          });
+          checkResponse = await fetch(`/api/check_matric/${identifier}/`);
         } else if (role === "Lecturer") {
-          saveResponse = await fetch("{% url 'enroll-lecturer-fingerprint' %}", {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-            }
-          });
+          checkResponse = await fetch(`/api/check_email/${identifier}/`);
         }
 
-        const saveData = await saveResponse.json();
-        if (saveData.status === "success") {
-          statusDiv.innerText = "Enrollment completed.";
+        const checkData = await checkResponse.json();
+        if (checkData.fingerprint_exists) {
+          statusDiv.innerHTML = `<li class="warning">User already has a fingerprint enrolled!</li>`;
+          return;
+        } else if (!checkData.user_exists) {
+          statusDiv.innerHTML = `<li class="error">This user does not exist!</li>`;
+          return;
+        }
+
+        const slotResponse = await fetch("{% url 'get-next-slot' %}");
+        const slotData = await slotResponse.json();
+        const slot = slotData.slot;
+        document.getElementById('slot-id').value = slot;
+        statusDiv.innerHTML = `<li class="info">Found user. Contacting fingerprint scanner... Please place finger on sensor.</li>`;
+
+        const esp32Response = await fetch(`http://192.168.43.5/enroll?slot=${slot}`);
+        const esp32Result = await esp32Response.json();
+
+        if (esp32Result.status === "success") {
+          statusDiv.innerHTML = `<li class="info">Fingerprint captured. Saving to database...</li>`;
+          
+          let saveResponse;
+          if (role === "Student") {
+            saveResponse = await fetch("{% url 'enroll-student-fingerprint' %}", {
+              method: 'POST',
+              body: formData,
+              headers: {'X-CSRFToken': formData.get('csrfmiddlewaretoken')}
+            });
+          } else if (role === "Lecturer") {
+            saveResponse = await fetch("{% url 'enroll-lecturer-fingerprint' %}", {
+              method: 'POST',
+              body: formData,
+              headers: {'X-CSRFToken': formData.get('csrfmiddlewaretoken')}
+            });
+          }
+
+          const saveData = await saveResponse.json();
+          if (saveData.status === "success") {
+            statusDiv.innerHTML = `<li class="success">Enrollment completed successfully!</li>`;
+          } else {
+            statusDiv.innerHTML = `<li class="error">${saveData.error || "Error saving enrollment to the database."}</li>`;
+          }
+
         } else {
-          statusDiv.innerText = saveData.error || "Error saving to DB.";
+          statusDiv.innerHTML = `<li class="error">Enrollment failed: ${esp32Result.message}</li>`;
         }
 
-      } else {
-        statusDiv.innerText = "Enrollment failed: " + esp32Result.message;
+      } catch (err) {
+        console.error(err);
+        statusDiv.innerHTML = `<li class="error">A network error occurred. Check the ESP32 connection and Django server.</li>`;
       }
+    });
+  </script>
 
-    } catch (err) {
-      console.error(err);
-      statusDiv.innerText = "Error talking to ESP32 or Django server.";
-    }
-  });
-</script>
+{% endblock %}

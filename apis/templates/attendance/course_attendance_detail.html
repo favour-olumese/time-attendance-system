@@ -1,102 +1,87 @@
 {% extends 'base.html' %}
+{% block title %}Attendance for {{ course.course_code }}{% endblock %}
 
 {% block content %}
-<div class="container">
-    <a href="{% url 'lecturer_course_list' %}">← Back to My Courses</a>
-    
-    <h2>Attendance for {{ course.course_name }} ({{ course.course_code }})</h2>
+
+    <a href="{% url 'lecturer_course_list' %}" style="margin-bottom: 1rem; display: inline-block;">← Back to My Courses</a>
+    <h2 class="page-header">Attendance: {{ course.course_name }} ({{ course.course_code }})</h2>
 
     <!-- Attendance Summary Section -->
-    <div class="summary-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="card">
+        <div class="card-header">
             <h3>Attendance Summary</h3>
-
             {% if total_sessions_count > 0 %}
-                <a href="{% url 'download_attendance_summary' course.pk %}" class="btn btn-primary">
-                    Download as CSV
-                </a>
+                <a href="{% url 'download_attendance_summary' course.pk %}" class="btn btn-primary">Download as CSV</a>
             {% endif %}
         </div>
         {% if total_sessions_count > 0 %}
             <p>Based on <strong>{{ total_sessions_count }}</strong> class(es) held so far.</p>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Student Name</th>
-                        <th>Matric Number</th>
-                        <th>Classes Attended</th>
-                        <th>Attendance Score</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in attendance_summary %}
-                    <tr>
-                        <td>{{ item.student.get_full_name }}</td>
-                        <td>{{ item.student.matric_number }}</td>
-                        <td>{{ item.attended_count }} / {{ total_sessions_count }}</td>
-                        <td>
-                            <div class="progress-bar">
-                                <div class="progress" style="width: {{ item.percentage }}%;">
-                                    {{ item.percentage|floatformat:1 }}%
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4">No students are currently enrolled in this course.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p>No attendance sessions have been held for this course yet. The summary will appear here once you host the first class.</p>
-        {% endif %}
-    </div>
-    <!-- End of Summary Section -->
-
-    <hr>
-
-    <h3>Detailed Session Log</h3>
-
-    {% for session in sessions %}
-        <div class="session-card">
-            <h4>
-                Session Date: {{ session.start_time|date:"F d, Y" }}
-            </h4>
-            <p>
-                <strong>Started:</strong> {{ session.start_time|time:"H:i" }} |
-                <strong>Ended:</strong> {{ session.end_time|time:"H:i"|default:"Still Active" }} |
-                <strong>Total Attendees:</strong> {{ session.attendees.count }}
-            </p>
-
-            <h5>Attendees:</h5>
-            {% if session.attendees.all %}
+            <div class="table-responsive-wrapper">
                 <table class="table">
                     <thead>
                         <tr>
                             <th>Student Name</th>
                             <th>Matric Number</th>
-                            <th>Time Marked</th>
+                            <th>Classes Attended</th>
+                            <th>Attendance Score</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for record in session.attendees.all %}
+                        {% for item in attendance_summary %}
                         <tr>
-                            <td>{{ record.student.get_full_name }}</td>
-                            <td>{{ record.student.matric_number }}</td>
-                            <td>{{ record.timestamp|time:"H:i:s" }}</td>
+                            <td>{{ item.student.get_full_name }}</td>
+                            <td>{{ item.student.matric_number }}</td>
+                            <td>{{ item.attended_count }} / {{ total_sessions_count }}</td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress" style="width: {{ item.percentage }}%;">
+                                        {{ item.percentage|floatformat:1 }}%
+                                    </div>
+                                </div>
+                            </td>
                         </tr>
+                        {% empty %}
+                        <tr><td colspan="4">No students are currently enrolled in this course.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
-            {% else %}
-                <p>No students marked attendance for this session.</p>
-            {% endif %}
-        </div>
-        <hr>
-    {% empty %}
-        <p>There are no attendance sessions recorded for this course yet.</p>
-    {% endfor %}
-</div>
+            </div>
+        {% else %}
+            <p>No attendance sessions have been held for this course yet. The summary will appear here once you host the first class.</p>
+        {% endif %}
+    </div>
+
+    <!-- Detailed Session Log Section -->
+    <div class="card">
+        <h3>Detailed Session Log</h3>
+        {% for session in sessions %}
+            <div class="card" style="margin-top: 1.5rem; background-color: var(--light-gray);">
+                <h4>Session Date: {{ session.start_time|date:"F d, Y" }}</h4>
+                <p>
+                    <strong>Started:</strong> {{ session.start_time|time:"H:i" }} |
+                    <strong>Ended:</strong> {{ session.end_time|time:"H:i"|default:"Still Active" }} |
+                    <strong>Total Attendees:</strong> {{ session.attendees.count }}
+                </p>
+                <div class="table-responsive-wrapper">
+                    <table class="table">
+                        <thead><tr><th>Student Name</th><th>Matric Number</th><th>Time Marked</th></tr></thead>
+                        <tbody>
+                            {% for record in session.attendees.all %}
+                            <tr>
+                                <td>{{ record.student.get_full_name }}</td>
+                                <td>{{ record.student.matric_number }}</td>
+                                <td>{{ record.timestamp|time:"H:i:s" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3">No students marked attendance for this session.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% empty %}
+            <p>There are no attendance sessions recorded for this course yet.</p>
+        {% endfor %}
+    </div>
+
 {% endblock %}
