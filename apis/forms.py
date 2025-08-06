@@ -30,7 +30,8 @@ class CourseEnrollmentForm(forms.ModelForm):
             # Filter courses to only show those available this semester and for the student's department
             self.fields['course'].queryset = Course.objects.filter(
                 available_semesters=self.current_semester,
-                departments=self.user.department
+                departments=self.user.department,
+                minimum_level=self.user.level
             ).distinct()
         except (CurrentSemester.DoesNotExist, AttributeError):
             self.current_semester = None
