@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+
+    <div class="card" style="max-width: 800px; margin: 4rem auto; text-align: center; padding: 2rem;">
+        
+        <h1 class="page-header">Welcome to the Automated Attendance System</h1>
+        
+        <p style="font-size: 1.1rem; color: var(--secondary-color); margin-top: 1rem;">
+            Streamline class attendance with our seamless fingerprint verification system.
+        </p>
+
+        <div style="margin-top: 2.5rem;">
+            {% if user.is_authenticated %}
+                <!-- If the user is logged in -->
+                <p>Welcome back, <strong>{{ user.first_name }}</strong>!</p>
+                <a href="{% url 'dashboard' %}" class="btn btn-primary">Go to Your Dashboard</a>
+            
+            {% else %}
+                <!-- If the user is a visitor (not logged in) -->
+                <a href="{% url 'login' %}" class="btn btn-primary">Login to Get Started</a>
+
+            {% endif %}
+        </div>
+
+    </div>
+
+{% endblock %}

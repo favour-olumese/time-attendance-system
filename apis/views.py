@@ -14,6 +14,12 @@ from django.http import HttpResponse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth.decorators import user_passes_test
 
+def home(request):
+    """
+    Renders the main landing/home page.
+    """
+    return render(request, 'home.html')
+
 
 def get_next_free_slot_value():
     used = FingerprintMapping.objects.values_list('fingerprint_id', flat=True)
@@ -37,7 +43,6 @@ def check_matric_enrolled(request, matric_number):
         return JsonResponse({"fingerprint_exists": fingerprint_exists, "user_exists": True})
     except User.DoesNotExist:
         return JsonResponse({"fingerprint_exists": False, "user_exists": False})
-
 
 
 # Returns True if the user is authenticated and a staff member.

@@ -19,6 +19,6 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('apis.urls')),
+    path('', include('apis.urls')),
     path('chaining/', include('smart_selects.urls')), # For chaining a model field to another.
 ]
