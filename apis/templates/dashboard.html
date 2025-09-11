@@ -56,7 +56,17 @@
                 </table>
             </div>
         </div>
-
+    {# ============================== ADMIN ============================= #}
+    {% elif user.is_staff %}
+        <div class="card">
+            <h2>Admin Overview</h2>
+            </br>
+            <a href="{% url 'enroll-student-fingerprint' %}" class="btn btn-primary">Enroll Students Fingerprints</a>
+            </br></br>
+            <a href="{% url 'enroll-lecturer-fingerprint' %}" class="btn btn-primary">Enroll Lecturers Fingerprints</a>
+            </br></br>
+            <a href="/admin" class="btn">Go to Admin Panel</a>
+        </div>
     {# ======================= LECTURER DASHBOARD ======================= #}
     {% elif user.user_role == 'Lecturer' %}
         <div class="card">
@@ -93,18 +103,6 @@
                     </tbody>
                 </table>
             </div>
-        </div>
-
-    {# ======================= OTHER ROLES (e.g., Admin) ======================= #}
-    {% else %}
-        <div class="card">
-            <h2>Admin Overview</h2>
-            </br>
-            <a href="{% url 'enroll-student-fingerprint' %}" class="btn btn-primary">Enroll Students Fingerprints</a>
-            </br></br>
-            <a href="{% url 'enroll-lecturer-fingerprint' %}" class="btn btn-primary">Enroll Lecturers Fingerprints</a>
-            </br></br>
-            <a href="/admin" class="btn">Go to Admin Panel</a>
         </div>
     {% endif %}
 
