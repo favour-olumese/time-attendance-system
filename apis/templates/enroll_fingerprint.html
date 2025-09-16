@@ -40,9 +40,9 @@
       try {
         let checkResponse;
         if (role === "Student") {
-          checkResponse = await fetch(`/api/check_matric/${identifier}/`);
+          checkResponse = await fetch(`/check_matric/${identifier}/`);
         } else if (role === "Lecturer") {
-          checkResponse = await fetch(`/api/check_email/${identifier}/`);
+          checkResponse = await fetch(`/check_email/${identifier}/`);
         }
 
         const checkData = await checkResponse.json();

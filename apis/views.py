@@ -323,6 +323,30 @@ def start_session(request):
         return JsonResponse({'error': f'An unexpected error occurred: {str(e)}'}, status=500)
 
 
+def get_session_status(request):
+    """
+    Checks if there is an active attendance session.
+    """
+    if request.method == 'GET':
+        # Find the most recent active session. Your logic may vary.
+        active_session = AttendanceSession.objects.filter(is_active=True).first()
+
+        if active_session:
+            # If a session is active, return its details
+            return JsonResponse({
+                "status": "active",
+                "course_code": active_session.course.course_code,
+                "lecturer_fingerprint_id": active_session.lecturer.fingerprintmapping.fingerprint_id
+            }, status=200)
+        else:
+            # If no session is active
+            return JsonResponse({
+                "status": "inactive"
+            }, status=200)
+
+    return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
 @csrf_exempt
 def mark_attendance(request):
     """

@@ -1,5 +1,5 @@
 # Virtual environment
-myvenv/
+myvenv
 
 # Python Cache
 *__pycache__
@@ -9,3 +9,6 @@ db.sqlite3
 
 # Environment variables file
 .env
+
+# Vscode
+.vscode
