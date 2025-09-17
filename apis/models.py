@@ -255,34 +255,24 @@ class AttendanceRecord(models.Model):
 
     def __str__(self):
         return f"{self.student} attended session {self.session.session_id}"
-"""
-class ClassSession(models.Model):
-    ClassSessionID = models.AutoField(primary_key=True)
-    Course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    Lecturer = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Lecturer'})
-    SessionDateTime = models.DateTimeField(default=timezone.now)
-    IsActive = models.BooleanField(default=False)
-    SessionEndTime = models.DateTimeField(null=True, blank=True)
+
+
+class EnrollmentTask(models.Model):
+    """
+    A task queue for the ESP32 device to enroll fingerprints.
+    """
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        PROCESSING = 'PROCESSING', 'Processing'
+        SUCCESS = 'SUCCESS', 'Success'
+        FAILED = 'FAILED', 'Failed'
+        TIMED_OUT = 'TIMED_OUT', 'Timed Out'
+
+    slot_id = models.IntegerField(unique=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    result_message = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
-        return f"{self.Course.CourseName} by {self.Lecturer} on {self.SessionDateTime}"
-
-class AttendanceLog(models.Model):
-    LogID = models.AutoField(primary_key=True)
-    ClassSession = models.ForeignKey(ClassSession, on_delete=models.CASCADE)
-    Student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Student'})
-    ScanTimestamp = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.Student} attended {self.ClassSession}"
-
-class AttendanceScore(models.Model):
-    ScoreID = models.AutoField(primary_key=True)
-    Student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'user_role': 'Student'})
-    Course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    Semester = models.CharField(max_length=20)
-    CalculatedScore = models.FloatField(default=0)
-
-    def __str__(self):
-        return f"{self.Student}: {self.CalculatedScore} in {self.Course}"
-"""
+        return f"Enrollment for Slot {self.slot_id} - {self.get_status_display()}"

@@ -25,77 +25,118 @@
   </div>
 
   <script>
-    // Your JavaScript remains the same
     const role = "{{ role }}";
     const form = document.getElementById('enroll-form');
     const statusDiv = document.getElementById('status');
+    let pollingInterval; // To hold the interval ID
+
+    // Function to poll the server for the task status
+    function pollForStatus(taskId) {
+        pollingInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/api/task-status/${taskId}/`);
+                const data = await response.json();
+
+                // Update the user message based on the status from the server
+                if (data.status === 'SUCCESS') {
+                    statusDiv.innerHTML = `<li class="success">Device reported success! Saving to database...</li>`;
+                    clearInterval(pollingInterval);
+                    // Now that the fingerprint is enrolled, submit the form to save the user mapping
+                    submitUserMapping();
+                } else if (data.status === 'FAILED') {
+                    statusDiv.innerHTML = `<li class="error">Device reported an error: ${data.message}</li>`;
+                    clearInterval(pollingInterval);
+                } else if (data.status === 'TIMED_OUT') {
+                    statusDiv.innerHTML = `<li class="error">Task timed out. No response from device.</li>`;
+                    clearInterval(pollingInterval);
+                } else {
+                    // Still PENDING or PROCESSING
+                    statusDiv.innerHTML = `<li class="info">Waiting for device to pick up the job and respond...</li>`;
+                }
+            } catch (err) {
+                console.error("Polling error:", err);
+                statusDiv.innerHTML = `<li class="error">Error checking task status.</li>`;
+                clearInterval(pollingInterval);
+            }
+        }, 3000); // Check every 3 seconds
+    }
+    
+    // New function to save the user data AFTER fingerprint is confirmed
+    async function submitUserMapping() {
+        const formData = new FormData(form);
+        let saveResponse;
+        let url = role === "Student" ? "{% url 'enroll-student-fingerprint' %}" : "{% url 'enroll-lecturer-fingerprint' %}";
+
+        try {
+            saveResponse = await fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': formData.get('csrfmiddlewaretoken')}
+            });
+            const saveData = await saveResponse.json();
+            if (saveData.status === "success") {
+                statusDiv.innerHTML = `<li class="success">Enrollment completed and saved successfully!</li>`;
+            } else {
+                statusDiv.innerHTML = `<li class="error">${saveData.error || "Error saving enrollment to the database."}</li>`;
+            }
+        } catch (err) {
+            console.error("Save error:", err);
+            statusDiv.innerHTML = `<li class="error">Error saving user mapping to database.</li>`;
+        }
+    }
+
 
     form.addEventListener('submit', async function (e) {
-      e.preventDefault();
-      statusDiv.innerHTML = `<li class="info">Checking availability...</li>`;
+        e.preventDefault();
+        if (pollingInterval) clearInterval(pollingInterval); // Stop any previous polling
+        statusDiv.innerHTML = `<li class="info">Checking user and getting free slot...</li>`;
 
-      const formData = new FormData(form);
-      const identifier = role === "Student" ? formData.get("matric_number") : formData.get("email");
+        const formData = new FormData(form);
+        const identifier = role === "Student" ? formData.get("matric_number") : formData.get("email");
 
-      try {
-        let checkResponse;
-        if (role === "Student") {
-          checkResponse = await fetch(`/check_matric/${identifier}/`);
-        } else if (role === "Lecturer") {
-          checkResponse = await fetch(`/check_email/${identifier}/`);
-        }
+        try {
+            // Step 1: Check if user exists and is not already enrolled
+            const checkUrl = role === "Student" ? `/check_matric/${identifier}/` : `/check_email/${identifier}/`;
+            const checkResponse = await fetch(checkUrl);
+            const checkData = await checkResponse.json();
+            if (checkData.fingerprint_exists) {
+                statusDiv.innerHTML = `<li class="warning">User already has a fingerprint enrolled!</li>`;
+                return;
+            } else if (!checkData.user_exists) {
+                statusDiv.innerHTML = `<li class="error">This user does not exist!</li>`;
+                return;
+            }
 
-        const checkData = await checkResponse.json();
-        if (checkData.fingerprint_exists) {
-          statusDiv.innerHTML = `<li class="warning">User already has a fingerprint enrolled!</li>`;
-          return;
-        } else if (!checkData.user_exists) {
-          statusDiv.innerHTML = `<li class="error">This user does not exist!</li>`;
-          return;
-        }
+            // Step 2: Get a free slot
+            const slotResponse = await fetch("{% url 'get-next-slot' %}");
+            const slotData = await slotResponse.json();
+            const slot = slotData.slot;
+            document.getElementById('slot-id').value = slot;
 
-        const slotResponse = await fetch("{% url 'get-next-slot' %}");
-        const slotData = await slotResponse.json();
-        const slot = slotData.slot;
-        document.getElementById('slot-id').value = slot;
-        statusDiv.innerHTML = `<li class="info">Found user. Contacting fingerprint scanner... Please place finger on sensor.</li>`;
-
-        const esp32Response = await fetch(`http://192.168.43.5/enroll?slot=${slot}`);
-        const esp32Result = await esp32Response.json();
-
-        if (esp32Result.status === "success") {
-          statusDiv.innerHTML = `<li class="info">Fingerprint captured. Saving to database...</li>`;
-          
-          let saveResponse;
-          if (role === "Student") {
-            saveResponse = await fetch("{% url 'enroll-student-fingerprint' %}", {
-              method: 'POST',
-              body: formData,
-              headers: {'X-CSRFToken': formData.get('csrfmiddlewaretoken')}
+            // Step 3: Queue the task on the server
+            statusDiv.innerHTML = `<li class="info">Slot ${slot} assigned. Sending enrollment task to server queue...</li>`;
+            const queueResponse = await fetch("{% url 'queue-enrollment-task' %}", {
+                method: 'POST',
+                body: JSON.stringify({ slot: slot }),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
             });
-          } else if (role === "Lecturer") {
-            saveResponse = await fetch("{% url 'enroll-lecturer-fingerprint' %}", {
-              method: 'POST',
-              body: formData,
-              headers: {'X-CSRFToken': formData.get('csrfmiddlewaretoken')}
-            });
-          }
+            const queueData = await queueResponse.json();
 
-          const saveData = await saveResponse.json();
-          if (saveData.status === "success") {
-            statusDiv.innerHTML = `<li class="success">Enrollment completed successfully!</li>`;
-          } else {
-            statusDiv.innerHTML = `<li class="error">${saveData.error || "Error saving enrollment to the database."}</li>`;
-          }
+            if (queueData.status === 'success') {
+                // Step 4: Start polling for the result
+                statusDiv.innerHTML = `<li class="info">Task queued successfully. Waiting for fingerprint device...</li>`;
+                pollForStatus(queueData.task_id);
+            } else {
+                statusDiv.innerHTML = `<li class="error">${queueData.error || 'Failed to queue task.'}</li>`;
+            }
 
-        } else {
-          statusDiv.innerHTML = `<li class="error">Enrollment failed: ${esp32Result.message}</li>`;
+        } catch (err) {
+            console.error(err);
+            statusDiv.innerHTML = `<li class="error">A network error occurred. Please try again.</li>`;
         }
-
-      } catch (err) {
-        console.error(err);
-        statusDiv.innerHTML = `<li class="error">A network error occurred. Check the ESP32 connection and Django server.</li>`;
-      }
     });
   </script>
 

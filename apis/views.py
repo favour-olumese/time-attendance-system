@@ -1,6 +1,6 @@
 import csv
 import json
-from .models import FingerprintMapping, User, CurrentSemester, CourseEnrollment, Course, AttendanceSession, AttendanceRecord
+from .models import FingerprintMapping, User, CurrentSemester, CourseEnrollment, Course, AttendanceSession, AttendanceRecord, EnrollmentTask
 from django.contrib.auth import authenticate, login
 from .forms import StudentEnrollmentForm, LecturerEnrollmentForm, CourseEnrollmentForm
 from django.shortcuts import render, redirect, get_object_or_404
@@ -13,6 +13,8 @@ from django.db.models import Count, Q # Import Count and Q for annotations
 from django.http import HttpResponse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth.decorators import user_passes_test
+from django.db import transaction
+
 
 def home(request):
     """
@@ -48,6 +50,98 @@ def check_matric_enrolled(request, matric_number):
 # Returns True if the user is authenticated and a staff member.
 def is_admin(user):
     return user.is_authenticated and user.is_staff
+
+@user_passes_test(is_admin) # Ensure only admins can start this
+@csrf_exempt
+def queue_enrollment_task(request):
+    """
+    Called by the browser's JavaScript to create a new enrollment task.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    
+    data = json.loads(request.body)
+    slot_id = data.get('slot')
+
+    if not slot_id:
+        return JsonResponse({'error': 'Slot ID is required'}, status=400)
+
+    # Create a new task, or update an old one to be tried again.
+    task, created = EnrollmentTask.objects.update_or_create(
+        slot_id=slot_id,
+        defaults={'status': EnrollmentTask.Status.PENDING, 'result_message': ''}
+    )
+    
+    return JsonResponse({'status': 'success', 'message': 'Enrollment task has been queued.', 'task_id': task.id})
+
+
+# VIEW FOR THE BROWSER TO CHECK STATUS
+@user_passes_test(is_admin)
+def get_enrollment_task_status(request, task_id):
+    """
+    Called by the browser's JavaScript to poll for the result of a task.
+    """
+    try:
+        task = EnrollmentTask.objects.get(id=task_id)
+        return JsonResponse({
+            'status': task.status,
+            'message': task.result_message or ''
+        })
+    except EnrollmentTask.DoesNotExist:
+        return JsonResponse({'error': 'Task not found'}, status=404)
+
+
+@csrf_exempt
+def get_pending_device_command(request):
+    """
+    Called by the ESP32 device to ask for a job.
+    This finds the oldest pending enrollment task.
+    """
+    with transaction.atomic():
+        # Find the oldest pending task and lock it for update
+        task = EnrollmentTask.objects.select_for_update().filter(status=EnrollmentTask.Status.PENDING).order_by('created_at').first()
+        
+        if task:
+            # If a task is found, mark it as processing so no other device picks it up
+            task.status = EnrollmentTask.Status.PROCESSING
+            task.save()
+            
+            # Send the command to the ESP32
+            return JsonResponse({'command': 'enroll', 'slot': task.slot_id, 'task_id': task.id})
+        else:
+            # No jobs pending
+            return JsonResponse({'command': 'none'})
+
+@csrf_exempt
+def report_enrollment_result(request):
+    """
+    Called by the ESP32 device to report the outcome of an enrollment task.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        task_id = data.get('task_id')
+        result_status = data.get('status') # e.g., "success" or "error"
+        message = data.get('message')
+
+        task = EnrollmentTask.objects.get(id=task_id)
+        
+        if result_status == 'success':
+            task.status = EnrollmentTask.Status.SUCCESS
+        else:
+            task.status = EnrollmentTask.Status.FAILED
+        
+        task.result_message = message
+        task.save()
+        
+        return JsonResponse({'status': 'result_recorded'})
+
+    except EnrollmentTask.DoesNotExist:
+        return JsonResponse({'error': 'Task not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @user_passes_test(is_admin)

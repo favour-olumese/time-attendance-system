@@ -37,6 +37,10 @@ urlpatterns = [
     path('check_matric/<str:matric_number>/', views.check_matric_enrolled, name='check-matric'),
     path('check_email/<str:email>/', views.check_lecturer_email_enrolled, name='check-email'),
     path('session/status/', views.get_session_status, name='api-session-status'),
+    path('api/queue-enrollment-task/', views.queue_enrollment_task, name='queue-enrollment-task'),
+    path('api/task-status/<int:task_id>/', views.get_enrollment_task_status, name='get-task-status'),
+    path('api/get-device-command/', views.get_pending_device_command, name='get-device-command'),
+    path('api/report-enrollment-result/', views.report_enrollment_result, name='report-enrollment-result'),
 
     # JSON POST
     path('session/start/', views.start_session, name='api-start-session'),
