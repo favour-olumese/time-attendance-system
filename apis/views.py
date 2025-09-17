@@ -13,6 +13,8 @@ from django.db.models import Count, Q # Import Count and Q for annotations
 from django.http import HttpResponse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth.decorators import user_passes_test
+import requests
+
 
 def home(request):
     """
@@ -48,6 +50,24 @@ def check_matric_enrolled(request, matric_number):
 # Returns True if the user is authenticated and a staff member.
 def is_admin(user):
     return user.is_authenticated and user.is_staff
+
+
+@csrf_exempt
+def proxy_enroll(request):
+    """
+    Proxy endpoint: forwards enrollment request to ESP32.
+    """
+    slot = request.GET.get("slot")
+    if not slot:
+        return JsonResponse({"error": "Missing slot ID"}, status=400)
+
+    try:
+        # Call the ESP32 locally
+        esp32_url = f"http://192.168.43.5/enroll?slot={slot}"
+        esp32_response = requests.get(esp32_url, timeout=10)  
+        return JsonResponse(esp32_response.json())
+    except requests.RequestException as e:
+        return JsonResponse({"error": f"ESP32 not reachable: {str(e)}"}, status=502)
 
 
 @user_passes_test(is_admin)

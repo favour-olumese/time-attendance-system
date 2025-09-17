@@ -20,6 +20,7 @@ urlpatterns = [
         name='password_change_done'),
 
     path("accounts/", include("django.contrib.auth.urls")),
+    path("proxy/enroll/", views.proxy_enroll, name="proxy-enroll"),
     path('enroll/student/', views.enroll_student_fingerprint, name='enroll-student-fingerprint'),
     path('enroll/lecturer/', views.enroll_lecturer_fingerprint, name='enroll-lecturer-fingerprint'),
 

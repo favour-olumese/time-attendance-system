@@ -25,7 +25,7 @@
   </div>
 
   <script>
-    // Your JavaScript remains the same
+
     const role = "{{ role }}";
     const form = document.getElementById('enroll-form');
     const statusDiv = document.getElementById('status');
@@ -60,7 +60,7 @@
         document.getElementById('slot-id').value = slot;
         statusDiv.innerHTML = `<li class="info">Found user. Contacting fingerprint scanner... Please place finger on sensor.</li>`;
 
-        const esp32Response = await fetch(`http://192.168.43.5/enroll?slot=${slot}`);
+        const esp32Response = await fetch(`/proxy/enroll/?slot=${slot}`);
         const esp32Result = await esp32Response.json();
 
         if (esp32Result.status === "success") {
